@@ -130,7 +130,10 @@ class Connection {
             Bootstrap bootstrap = factory.newBootstrap();
             ProtocolOptions protocolOptions = factory.configuration.getProtocolOptions();
             bootstrap.handler(
-                    new Initializer(this, protocolVersion, protocolOptions.getCompression().compressor(), protocolOptions.getSSLOptions(),
+                    new Initializer(this, protocolVersion,
+                            protocolOptions.getAllowBetaProtocolVersions(),
+                            protocolOptions.getCompression().compressor(),
+                            protocolOptions.getSSLOptions(),
                             factory.configuration.getPoolingOptions().getHeartbeatIntervalSeconds(),
                             factory.configuration.getNettyOptions(),
                             factory.configuration.getCodecRegistry()));
@@ -243,7 +246,8 @@ class Connection {
                         // Testing for a specific string is a tad fragile but well, we don't have much choice
                         // C* 2.1 reports a server error instead of protocol error, see CASSANDRA-9451
                         if ((error.code == ExceptionCode.PROTOCOL_ERROR || error.code == ExceptionCode.SERVER_ERROR) &&
-                                error.message.contains("Invalid or unsupported protocol version"))
+                                error.message.contains("Invalid or unsupported protocol version") ||
+                                error.message.contains("Beta version of the protocol used"))
                             throw unsupportedProtocolVersionException(protocolVersion, error.serverProtocolVersion);
                         throw new TransportException(address, String.format("Error initializing connection: %s", error.message));
                     case AUTHENTICATE:
@@ -259,6 +263,7 @@ class Connection {
                             case V2:
                             case V3:
                             case V4:
+                            case V5:
                                 return authenticateV2(authenticator, protocolVersion, initExecutor);
                             default:
                                 throw defunct(protocolVersion.unsupported());
@@ -1282,6 +1287,7 @@ class Connection {
         private static final Message.ProtocolEncoder messageEncoderV2 = new Message.ProtocolEncoder(ProtocolVersion.V2);
         private static final Message.ProtocolEncoder messageEncoderV3 = new Message.ProtocolEncoder(ProtocolVersion.V3);
         private static final Message.ProtocolEncoder messageEncoderV4 = new Message.ProtocolEncoder(ProtocolVersion.V4);
+        private static final Message.ProtocolEncoder messageEncoderV5 = new Message.ProtocolEncoder(ProtocolVersion.V5);
         private static final Frame.Encoder frameEncoder = new Frame.Encoder();
 
         private final ProtocolVersion protocolVersion;
@@ -1291,14 +1297,16 @@ class Connection {
         private final NettyOptions nettyOptions;
         private final ChannelHandler idleStateHandler;
         private final CodecRegistry codecRegistry;
+        private final boolean useBeta;
 
-        Initializer(Connection connection, ProtocolVersion protocolVersion, FrameCompressor compressor, SSLOptions sslOptions, int heartBeatIntervalSeconds, NettyOptions nettyOptions, CodecRegistry codecRegistry) {
+        Initializer(Connection connection, ProtocolVersion protocolVersion, boolean useBeta, FrameCompressor compressor, SSLOptions sslOptions, int heartBeatIntervalSeconds, NettyOptions nettyOptions, CodecRegistry codecRegistry) {
             this.connection = connection;
             this.protocolVersion = protocolVersion;
             this.compressor = compressor;
             this.sslOptions = sslOptions;
             this.nettyOptions = nettyOptions;
             this.codecRegistry = codecRegistry;
+            this.useBeta = useBeta;
             this.idleStateHandler = new IdleStateHandler(0, 0, heartBeatIntervalSeconds);
         }
 
@@ -1318,6 +1326,10 @@ class Connection {
 
             pipeline.addLast("frameDecoder", new Frame.Decoder());
             pipeline.addLast("frameEncoder", frameEncoder);
+
+            if (useBeta) {
+                pipeline.addLast(new Frame.BetaVersionFlagAdder());
+            }
 
             if (compressor != null) {
                 pipeline.addLast("frameDecompressor", new Frame.Decompressor(compressor));
@@ -1344,6 +1356,8 @@ class Connection {
                     return messageEncoderV3;
                 case V4:
                     return messageEncoderV4;
+                case V5:
+                    return messageEncoderV5;
                 default:
                     throw new DriverInternalError("Unsupported protocol version " + protocolVersion);
             }

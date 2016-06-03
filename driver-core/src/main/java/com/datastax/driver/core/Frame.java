@@ -110,6 +110,7 @@ class Frame {
                 return fullFrame.readByte();
             case V3:
             case V4:
+            case V5:
                 return fullFrame.readShort();
             default:
                 throw version.unsupported();
@@ -152,6 +153,7 @@ class Frame {
                     return 8;
                 case V3:
                 case V4:
+                case V5:
                     return 9;
                 default:
                     throw version.unsupported();
@@ -163,7 +165,8 @@ class Frame {
             COMPRESSED,
             TRACING,
             CUSTOM_PAYLOAD,
-            WARNING;
+            WARNING,
+            USE_BETA;
 
             static EnumSet<Flag> deserialize(int flags) {
                 EnumSet<Flag> set = EnumSet.noneOf(Flag.class);
@@ -175,7 +178,10 @@ class Frame {
                 return set;
             }
 
-            static int serialize(EnumSet<Flag> flags) {
+            static int serialize(EnumSet<Flag> flags, ProtocolVersion protocolVersion) {
+                if (protocolVersion.toInt() < ProtocolVersion.V5.toInt() && flags.contains(USE_BETA))
+                    throw new UnsupportedOperationException(String.format("USE_BETA flag is not supported for the protocol version %s", protocolVersion));
+
                 int i = 0;
                 for (Flag flag : flags)
                     i |= 1 << flag.ordinal();
@@ -251,7 +257,7 @@ class Frame {
             ByteBuf header = ctx.alloc().ioBuffer(Frame.Header.lengthFor(protocolVersion));
             // We don't bother with the direction, we only send requests.
             header.writeByte(frame.header.version.toInt());
-            header.writeByte(Header.Flag.serialize(frame.header.flags));
+            header.writeByte(Header.Flag.serialize(frame.header.flags, protocolVersion));
             writeStreamId(frame.header.streamId, header, protocolVersion);
             header.writeByte(frame.header.opcode);
             header.writeInt(frame.body.readableBytes());
@@ -268,6 +274,7 @@ class Frame {
                     break;
                 case V3:
                 case V4:
+                case V5:
                     header.writeShort(streamId);
                     break;
                 default:
@@ -326,6 +333,14 @@ class Frame {
                     uncompressedBody.release();
                 }
             }
+        }
+    }
+
+    static class BetaVersionFlagAdder extends MessageToMessageEncoder<Frame> {
+        @Override
+        protected void encode(ChannelHandlerContext ctx, Frame frame, List<Object> out) throws Exception {
+            frame.header.flags.add(Header.Flag.USE_BETA);
+            out.add(frame);
         }
     }
 }

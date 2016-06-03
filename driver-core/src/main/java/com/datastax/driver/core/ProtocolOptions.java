@@ -99,6 +99,7 @@ public class ProtocolOptions {
     private final SSLOptions sslOptions; // null if no SSL
     private final AuthProvider authProvider;
 
+    private volatile boolean useBeta = false;
     private volatile Compression compression = Compression.NONE;
 
     /**
@@ -231,4 +232,23 @@ public class ProtocolOptions {
         return authProvider;
     }
 
+    /**
+     * Allows client to connect to server using latest development protocol version,
+     * which is currently in beta.
+     *
+     * @param useBeta
+     * @return this {@code ProtocolOptions} object.
+     */
+    public ProtocolOptions setAllowBetaProtocolVersions(boolean useBeta) {
+        this.useBeta = useBeta;
+        return this;
+    }
+
+    /**
+     * Whether or not connecting to server with protocol version which is currently in beta is allowed.
+     * @return {@code true} if connecting with beta protocol version is allowed, {@code false} otherwise.
+     */
+    public boolean getAllowBetaProtocolVersions() {
+        return this.useBeta;
+    }
 }
