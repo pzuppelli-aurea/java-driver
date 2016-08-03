@@ -15,11 +15,7 @@
  */
 package com.datastax.driver.mapping;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.TableMetadata;
-import com.datastax.driver.core.TypeCodec;
-import com.datastax.driver.core.UserType;
+import com.datastax.driver.core.*;
 import com.datastax.driver.mapping.MethodMapper.ParamMapper;
 import com.datastax.driver.mapping.annotations.*;
 import com.google.common.base.Strings;
@@ -194,7 +190,7 @@ class AnnotationParser {
                 throw new IllegalArgumentException(String.format("Field %s does not exist in type %s.%s",
                         propertyMapper.columnName, ksName, userType.getTypeName()));
 
-            for (Class<?> fieldUdt : TypeMappings.findUDTs(field.getGenericType()))
+            for (Class<?> fieldUdt : TypeMappings.findUDTs(propertyMapper.javaType.getType()))
                 mappingManager.getUDTCodec(fieldUdt);
 
             propertyMappers.put(propertyMapper.columnName, propertyMapper);
