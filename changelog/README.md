@@ -1,5 +1,10 @@
 ## Changelog
 
+### 3.1.1 (In progress)
+
+- [bug] JAVA-1255: Allow nested UDTs to be used in Mapper.
+
+
 ### 3.1.0
 
 - [new feature] JAVA-1153: Add PER PARTITION LIMIT to Select QueryBuilder.
