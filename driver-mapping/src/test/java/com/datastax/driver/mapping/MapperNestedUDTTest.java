@@ -19,9 +19,11 @@ import com.datastax.driver.core.CCMTestsSupport;
 import com.datastax.driver.core.utils.CassandraVersion;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.driver.mapping.annotations.Transient;
 import com.datastax.driver.mapping.annotations.UDT;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,85 +137,74 @@ public class MapperNestedUDTTest extends CCMTestsSupport {
 
     @UDT(name = "rectangle")
     public static class Rectangle {
-        private Point a;
-        private Point b;
-        private Point c;
-        private Point d;
 
-        public Rectangle(Point a, Point b, Point c, Point d) {
-            this.a = a;
-            this.b = b;
-            this.c = c;
-            this.d = d;
-        }
+        // a somewhat artificial way to store coordinates,
+        // but the goal is to test that nested UDTs can be discovered through
+        // getters instead of fields
+        @Transient
+        private final Point[] points;
 
         public Rectangle() {
+            points = new Point[4];
+        }
 
+        public Rectangle(Point a, Point b, Point c, Point d) {
+            points = new Point[]{a, b, c, d};
         }
 
         public Point getA() {
-            return a;
+            return points[0];
         }
 
         public void setA(Point a) {
-            this.a = a;
+            points[0] = a;
         }
 
         public Point getB() {
-            return b;
+            return points[1];
         }
 
         public void setB(Point b) {
-            this.b = b;
+            points[1] = b;
         }
 
         public Point getC() {
-            return c;
+            return points[2];
         }
 
         public void setC(Point c) {
-            this.c = c;
+            points[2] = c;
         }
 
         public Point getD() {
-            return d;
+            return points[3];
         }
 
         public void setD(Point d) {
-            this.d = d;
+            points[3] = d;
         }
 
         @Override
         public String toString() {
             return "Rectangle{" +
-                    "a=" + a +
-                    ", b=" + b +
-                    ", c=" + c +
-                    ", d=" + d +
+                    "a=" + getA() +
+                    ", b=" + getB() +
+                    ", c=" + getC() +
+                    ", d=" + getD() +
                     '}';
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof Rectangle)) return false;
-
+            if (o == null || getClass() != o.getClass()) return false;
             Rectangle rectangle = (Rectangle) o;
-
-            if (a != null ? !a.equals(rectangle.a) : rectangle.a != null) return false;
-            if (b != null ? !b.equals(rectangle.b) : rectangle.b != null) return false;
-            if (c != null ? !c.equals(rectangle.c) : rectangle.c != null) return false;
-            return d != null ? d.equals(rectangle.d) : rectangle.d == null;
-
+            return Arrays.equals(points, rectangle.points);
         }
 
         @Override
         public int hashCode() {
-            int result = a != null ? a.hashCode() : 0;
-            result = 31 * result + (b != null ? b.hashCode() : 0);
-            result = 31 * result + (c != null ? c.hashCode() : 0);
-            result = 31 * result + (d != null ? d.hashCode() : 0);
-            return result;
+            return Arrays.hashCode(points);
         }
     }
 
