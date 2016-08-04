@@ -1,5 +1,11 @@
 ## Changelog
 
+
+### 3.0.4 (in progress)
+
+- [bug] JAVA-1258: Regression: Mapper cannot map a materialized view after JAVA-1126.
+
+
 ### 3.0.3
 
 - [improvement] JAVA-1147: Upgrade Netty to 4.0.37.
